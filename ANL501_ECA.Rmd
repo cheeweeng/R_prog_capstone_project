@@ -1,0 +1,600 @@
+---
+title: "ANL501
+Data Visualisation and Storytelling
+"
+output: word_document
+
+---
+
+#
+#
+#
+#
+
+# ECA JAN2025: From Past to Present: An Analytical Overview of Singapore's Parliarmentary Elections
+#
+#
+# PI No. Y2510707
+
+# Name: Ng Chee Wee
+
+# Submission Date: 05.03.2025
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+#knitr::opts_chunk$set(fig.height = 6, fig.width = 8.5, fig.align = "center") # comment this out when knitting to word
+```
+
+
+```{r echo=F}
+#Install packages and load libraries
+#install.packages("writexl")
+
+library(tinytex) # To use LaTeX syntax
+library(tidyverse)
+library(ggrepel) # For nice positioning of the label aesthetic
+library(httr) # To implement a GET() call for an API 
+library(jsonlite) # For parsing a json file into text
+library(stats) # For implementing logistic regression via glm()
+library(reticulate) # To use Python codes in R
+library(tidyr)
+library(dplyr)
+library(readxl)
+library(writexl)
+library(ggplot2)
+library(socviz)
+library(scales)
+library(ggthemes)# To use the map theme
+library(ggmap)# To use ggmap
+library(sf)# To read a shape file as an sf data frame
+library(leaflet)# To use leaflet
+library(geojsonsf)# To read a geojson file as sf
+library(tidygeocoder)# To geocode for free
+
+### Please change your working directory here ###
+
+setwd("C:/Users/Chee Wee/Desktop/SUSS/ANL501/501_ECA")
+```
+
+# Executive Summary
+
+The objective of this analytical overview of Singapore Parliamentary Elections aims to provide a factual analysis of Singapore electoral history through quantitative data, extracted from Elections Department to present an objective assessment of electoral trends. As the nation approaches its next General Election, the motivation of this report seeks to provide an understanding of how demographic changes, past systemic and structural political reforms and recent political developments have shaped Singapore's parliamentary democracy over time, characterized by the People's Action Party continued electoral success and the gradual emergence of opposition representation.
+
+The report will reveal several significant findings about Singapore's evolving electoral landscape. First, the data will show the expansion in registered voter base. The steady increase reflects propulation growth, which is consistent with a young nation, and the increase has implication for electoral boundary revision which in turn will affect strategies of each political parties keen to contest in the next election.
+
+Another observed key trend was the significant fluctuation of political parties with notable peaks and troughs over pre and post independence Singapore. This display suggest notable patterns of consolidation and diversification over the years.
+
+Historically, PAP has been the dominant political party and has maintained parliamentary majority since 1959. The most remarkable feat of PAP is perhaps its clean sweep of parliamentary seats in three consecutive elections, leading to systemic reform. These reforms and other critical findings will be presented in later sections of this report.
+
+\newpage 
+
+# Introduction
+
+With General election due to be held by 23 November 2025, election season is well and truly underway as Singaporeans gear up for political hustings and wait with bated breath for Polling Day to cast their votes. Will the Opposition parties, led by Workers' Party and the Progress Singapore Party (PSP) mount a serious challenge to the incumbent People's Action Party (PAP) to gain more political ground? Or will PAP, led by new Prime Minister Mr. Lawerence Wong, and the fourth generation (4G) leaders, contesting their first election since Mr Lee Hsien Loong stepped down as Prime Minister, maintain a strong mandate from the electorates?
+
+This report will look at some interesting data from past to present and try to analyse how various political reforms and developments over the years have come to shape Singapore's current political landscape.
+
+# Data
+
+For this report, two datasets were extracted from the Elections Department (ELD) provided via data.gov.sg API. The datasets are "Parliamentary General Election Results by Candidate" and "Parliamentary General Election - Registered Electors Rejected Votes and Spoilt Ballots".
+
+"Parliamentary General Election Results by Candidate" dataset consist of 8 variables and 1539 observations. 
+
+"Parliamentary General Election Results by Candidate" and "Parliamentary General Election - Registered Electors Rejected Votes and Spoilt Ballots" consist of 6 variables and 721 observations.
+
+One GeoJSON file "ElectoralBoundary2020GEOJSON" was also used to merge with one of the above dataset to plot a choropleth map. Details of data wrangling work, as well as the RMarkdown file embeded, can be found in the Data appendix.
+\newpage
+
+
+```{r extract1, echo=F, results = "hide"}
+#API to extract data on "Parliamentary GE Results by candidate"
+### Constructing the URL
+dataset_id <- "d_581a30bee57fa7d8383d6bc94739ad00"
+elections.url <- paste0("https://data.gov.sg/api/action/datastore_search?resource_id=", dataset_id, "&limit=10000")
+### Extracting the Data
+out.elections <- fromJSON(elections.url, simplifyDataFrame = T) # Fetching the data
+df.elections <- out.elections$result$records # Saving the records
+#View the data
+#str(df.elections)
+#convert columns to numeric
+df.elections <- df.elections %>%
+  mutate(    vote_count = as.numeric(vote_count), 
+    vote_percentage = as.numeric(vote_percentage), year = as.numeric(year))
+
+# Replace 'na' with NA for proper handling
+df.elections[df.elections == "na"] <- NA
+#write dataframe to an excel file
+#write_xlsx(df.elections, "singapore_election_data.xlsx")
+```
+
+# Visual insights into Singapore's Electoral Trends
+
+```{r extract2, echo=F}
+##Constructing the URL
+dataset_id <- "d_fdfb854fcb7428b29734d2e0c0674220"
+url <- paste0("https://data.gov.sg/api/action/datastore_search?resource_id=" , dataset_id, "&limit=10000")
+### Extracting the data for "ParliamentaryGeneralElection-RegisteredElectors RejectedVotesandSpoiltBallots.csv"
+out.regelectors <- fromJSON(url, simplifyDataFrame = T)
+df.regelectors <- out.regelectors$result$records 
+
+#str(df.regelectors)
+# Data preprocessing
+# Convert character columns to numeric
+df.regelectors <- df.regelectors %>%
+  mutate(
+    no_of_registered_electors = as.numeric(no_of_registered_electors),
+    no_of_rejected_votes = as.numeric(no_of_rejected_votes),
+    no_of_spoilt_ballot_papers = as.numeric(no_of_spoilt_ballot_papers),
+    year = as.integer(year)
+  )
+#str(df.regelectors)
+# Create yearly summary
+yearly_summary <- df.regelectors %>%
+  group_by(year) %>%
+  summarise(
+    total_registered = sum(no_of_registered_electors, na.rm=TRUE), #apply aggregation to find total
+    total_rejected = sum(no_of_rejected_votes, na.rm=TRUE), #apply aggregation to find total
+    total_spoilt = sum(no_of_spoilt_ballot_papers, na.rm=TRUE) #apply aggregation to find total
+  )
+
+#Visualization
+#Registered Electors Trend
+ggplot(yearly_summary, aes(x = year, y = total_registered)) +
+  geom_line(color = "skyblue", linewidth = 1) +
+  geom_point(color = "blue", size=2) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(
+    title = "Trend of Registered Electors (1955-2020)",
+    x = "Year",
+    y = "Number of Registered Electors",
+    caption = "Source: https://data.gov.sg/",
+    
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+  )
+
+```
+  
+The above shows a Time series plot of registered voters growth. There has been a steady increase in registered electors from slightly above three hundred thousands in 1955 to about 2.65 millions in 2020. The growth rate has been relatively consistent, reflecting Singapore's population growth and increasing voter base.
+
+Following the release of the latest voters roll by the Election Department, the number of eligible voters at the upcoming General Election has increase to 2,715,187.(Koh, 2024). This represents a nine-fold expansion of voter base over a seven decade period. Increase in the number of eligible voters, together with establishment of new towns, would have an impact on the electoral boundaries, which are yet to be determined at the time of writing this report. 
+
+
+```{r POT, echo=F}
+# Number of Political Parties Over Time
+parties_over_time <- df.elections %>%
+  group_by(year) %>%
+  summarise(party_count = n_distinct(party)) #For each year, counts the number of distinct (unique) political parties and stores this count in a new column called party_count
+
+ggplot(parties_over_time, aes(x = year, y = party_count)) +
+  geom_line(color = "skyblue", size = 1) +
+  geom_point(color = "blue", size=2) +
+  theme_minimal() +
+  labs(title = "Number of Political Parties Over Time",
+       x = "Year",
+       y = "Number of Parties",caption = "Source: https://data.gov.sg/") +
+  scale_y_continuous(breaks = seq(0, max(parties_over_time$party_count), by = 2)) #y-labels starts at 0 & ends at max value of party_count.
+
+```
+
+The time series plot illustrates the number of political parties in Singapore over time, spanning from around 1955 to 2020.From 1955 to late 50s, Singapore witnessed the number of political parties increase from 7 to 11, after which there was a sharp decline to 3 parties in the mid to late 60s.That was the lowest point in the history of Singapore's political formation. Such period may indicate political consolidation.
+
+Towards the early 1970s, the number of political parties started rising again, reaching a peak of 8 in 1980, and following the momentum, reaching a high of 10 parties in the mid-80s.This could suggest a renewed interest in multi-party democracy during the period of nation building.
+
+After that golden period of growth in number of political parties, there was a general slump in the next 15 years or so until the early 2000s. Hitting a low of 4 parties in mid-2000s.This could be due to political dominance by a few parties which lead to a high barrier to political entry and further eroded political participation.
+
+From 2010 onwards and for the next 10 years, there was a strong surge in the number of political parties in Singapore, hitting an all-time high of 12 parties. This rising trend could very well be brought about by Worker's Party (WP) historic victory in Aljunied GRC in the 2011 General Election (yahoo! news, 2011). This event marked the first GRC loss for the incumbant People's Action Party (PAP) and the first time an Opposition party has won a GRC in Singapore's political history. In the same GE, WP also retained the Hougang SMC seat.
+
+
+```{r seats_won,echo=F}
+#Seats Won by Parties
+seats_won <- df.elections %>%
+  group_by(year, constituency) %>%
+   slice_max(vote_percentage) %>% # selects the row with the highest vote_percentage for each group to id winner of each constituency
+  group_by(year, party) %>%
+  summarise(seats = n()) %>% #count no. of rows which represents no. of seats won
+  ungroup() #remove grouping structure, subsequent operation apply to entire data set
+
+ggplot(seats_won, aes(x = year, y = seats, fill = party)) +
+  geom_bar(stat = "identity", position = "stack") +
+  theme_minimal() +
+  labs(title = "Number of Seats Won by Parties",
+       x = "Year",
+       y = "Number of Seats", caption = "Source: https://data.gov.sg/") +
+  
+  scale_fill_viridis_d(option = "plasma") +  # Viridis ensures good contrast
+ theme(axis.text.x = element_text(angle = 45, hjust = 1)) + # Improve readability
+  scale_x_continuous(breaks = unique(seats_won$year)) #every year in dataset is marked on x-axis
+```
+
+Looking at the trend in this stacked bar chart which depicts the number of seats won by various political parties in the Singapore General election from 1955 to 2020. Except for the 1955 GE where parliamentary seats were shared across various parties, the PAP has been the dominant party which won majority of the parliamentary seats from 1959 right up till 2020 GE. 
+
+From the 1970s to 1980, the PAP even made a clean sweep of all the parliamentary seats. PAP won all 65 seats in the 1972 General Election (Sunday Times Reporters, 1972). In the next Election in 1976, it was 69 seats to nothing (Fong, 1976). In the 1980 Election, it was another knockout victory with PAP winning all 75 seats (Fong, 1980). This phenomenal show of mandate to PAP was likely due to their huge support base and the years of consistent governance and steady economic growth. As a results following clean sweep of parliamentary seats by one party in three consecutive Parliamentary General Election, "The Non-Constituency Member of Parliament (NCMP) scheme was introduced just before the 1984 parliamentary general election to ensure that there would always be a minimum number of opposition members in parliament."(National Library Board Singapore, 2011).
+
+From 1990 onwards, we can see from the chart there were more opposition representation from smaller parties like SDP, SPP and WP.From 2010, only the WP has managed to put in a consistent showing at the polls, retaining and even growing the number of seats in recent Elections.
+
+```{r avg_voter, echo=F}
+# Top Constituencies by Average Voter Count
+constituency_analysis <- df.elections %>%
+  group_by(constituency) %>%
+  summarise(
+    avg_voters = mean(vote_count, na.rm = TRUE), #calculate average no. of voters, ignoring missing values
+    total_contests = n()    #count the no. of rows
+  ) %>% 
+  arrange(desc(avg_voters)) %>%  #sort in descending order
+  head(10)  #select top 10 highest average voter count
+
+ggplot(constituency_analysis, aes(x = reorder(constituency, avg_voters), y = avg_voters)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +   #bars are displayed horizontally instead of vertically, better readability of x-axis label
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0),  #align title to the left
+  plot.title.position = "plot")+ #title position within the plot
+  labs(title = "Top 10 Constituencies by Average Voter Count",
+       x = "Constituency",
+       y = "Average Number of Voters", caption = "Source: https://data.gov.sg/")
+
+```
+
+The above chart illustrates the Top 10 Constituencies by average voter count. The average number of voters ranged from 40000 to 60000 and is heavily influenced by population density in each constituency. 
+These top 10 constituencies are all Group Representation Constituencies (GRC), ranging from 4-members to 6-members, thus they have larger voter base. According to Election Department, "A GRC is a larger electoral division, both in terms of population as well as physical area. A group of MPs represents the interests of those residents in the electoral division." (ELD Singapore, 2024).
+
+Constitunencies like Pasir Ris-Punggol, Hong Kah and Sengkang, are regions with large residential estates, leading to a larger number of registered voters. Converserly, Holland-Bukit Timah and Marine Parade are areas with more private housing, hence the population densities are lower in those areas.
+
+
+```{r conwon, echo=F}
+# Determine winners by constituency and year
+winners <- df.elections %>%
+  group_by(year, constituency) %>%
+  slice_max(vote_percentage, n = 1, with_ties = FALSE) %>% #keep only the row with the highest vote percentage, only one winner selected in case of a tie
+  ungroup()  #remove grouping structure, subsequent operation apply to entire data set
+
+# Bar chart of winning parties by year
+ggplot(winners, aes(x = (year), fill = party)) +
+  geom_bar(position = "stack") +
+   labs(title = "Winning Parties by Year (1955-2020)",
+       x = "Year",
+       y = "Number of Constituencies Won",
+       fill = "Party", caption = "Source: https://data.gov.sg/") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  #scale_x_continuous(breaks = unique(winners$year))+
+  theme_minimal()
+```
+
+This stacked bar plot shows the number of constituencies won by each party from 1955 to 2020 General Election. At first glance, one key trend that emerged was the absolute dominance of the ruling party, PAP. From 1955 to 1984 election, the number of constituency has been increasing, oweing to increasing population and registered voters, which led to the building and establishment of more new estates and new towns. At its highest, the number of constituency was close to 80.
+
+After the Group Representation Constituency (GRC) system came into effect in 1988, it was evidence there was a significant decrease of constituencies. Prior to 1988, there was only one type of electoral division, which is Single Member Constituencies (SMC). A GRC covers a larger geographical area, hence the number of individual constituency was reduced quite substanially.
+
+
+```{r top10rej, echo=F}
+# Top Constituencies by Rejected Votes (2020)
+latest_year <- max(df.regelectors$year) #get the max value of the column year.
+top_constituencies <- df.regelectors %>%
+  filter(year == latest_year) %>%
+  arrange(desc(no_of_rejected_votes)) %>% #arrange in descending order 
+  head(10) #show top 10
+
+ggplot(top_constituencies, 
+       aes(x = reorder(constituency, no_of_rejected_votes), #constituency reorder based on the no. of rejected votes and not in alphabetical order.
+           y = no_of_rejected_votes)) +
+  geom_bar(stat = "identity", fill = "skyblue") + #stat="identity" to use actual values for bar heights, not count
+  coord_flip() + #flip the coordinates, turning vertical bar chart into a horiztonal one
+  labs(
+    title = paste("Top 10 Constituencies by Rejected Votes (", latest_year, ")", sep=""),
+    x = "Constituency",
+    y = "Number of Rejected Votes"
+  ) +
+ theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust=0),
+    plot.title.position = "plot" #title aligns with plot area
+  )
+```
+
+This is a constituency-level analysis to show the Top 10 constituency by rejected votes in the last election in 2020. Ang Mo Kio had the highest number of rejected votes (5,016)
+Tampines and Pasir Ris-Punggol followed with 3,521 and 3,395 rejected votes respectively
+The number of rejected votes appears to correlate with constituency size, but if examine from another angle, the constituencies ranked higher in the chart appeared to be from older estates which translate to higher proportion of aging voters.
+
+```{r map, echo=F, results = "hide", fig.width=10, fig.height=8}
+# Load GeoJSON file as a spatial object
+geo_data <- st_read("ElectoralBoundary2020GEOJSON.geojson") %>% #using st_read() from sf package as it is more flexible and can read multiple formats (GeoJSON, Shapefiles, etc.)
+  st_zm()  #strip away z axis
+# Peek at the GeoJSON data
+glimpse(geo_data)
+
+# rename Name column to constituency
+geo_data <- geo_data %>% 
+  rename(constituency = Name)
+
+# Filter to year 2020 & convert constituency name to Upper case
+df.elections2020 <- df.elections %>%
+  filter(year == 2020) %>%
+  mutate(constituency = trimws(toupper(constituency)))
+# Extract the winning party per constituency
+winning_parties <- df.elections2020 %>%
+  group_by(constituency) %>%
+  filter(vote_percentage == max(vote_percentage, na.rm=TRUE)) %>%
+  ungroup()
+# Use a left-join to merge df.elections & geo_data by common column "constituency"
+combined_data <- geo_data %>% 
+ # left_join(df.elections2020, by = "constituency")
+  left_join(winning_parties, by = "constituency")
+#head(combined_data)
+
+#save longitude,latitude & location name
+Jurong <- c(103.7216, 1.3346, 'Jurong GRC')
+AMK <- c(103.84834, 1.36944, 'AMK GRC')
+East <- c(103.9951, 1.3511, 'East Coast GRC')
+West <- c(103.72767, 1.27931, 'West Coast GRC')
+
+# Construct the data frame for the places to be marked
+places <- rbind(Jurong, AMK, East, West) %>% as.data.frame()
+colnames(places) <- c("long", "lat", "ID") # ID contains the name of the places
+places$long <- as.numeric(places$long) #ensure the coordinates are numeric
+places$lat <- as.numeric (places$lat)
+
+#Plot GE2020 results on map
+ggplot(combined_data) +
+  geom_sf(aes(fill = vote_percentage), color = "black") + 
+  geom_text(data = places, aes(x = long, y = lat, label = ID), 
+            color = "red", fontface = "bold", nudge_y = 0.01, nudge_x = 0.01, size=4) +  # Add labels
+  scale_fill_viridis_c(option = "plasma", name = "% Votes") + #colour gradient
+   theme_minimal() +
+  labs(title = "GE 2020 Vote Percentage of Winning Party", size=9, 
+       subtitle = "By Electoral Boundaries (2020)",size=7,
+       caption = "Source: https://data.gov.sg/")
+
+
+```
+
+Shown in the above map is the vote percentage distribution of winning party by electoral boundaries for GE2020 with dark blue colour as low percentage of votes and yellow colour as high percentage of votes. Across all constituencies, there was generally a significant variations in voting pattern. This suggest a more localised voting pattern rather than a uniformed national voting behaviour.
+
+The only GRC in yellow colour is in the West which is Jurong GRC, it has scored very high winning percentage and Jurong has tradiationally been a stronghold of the PAP. Next GRC which is quite close to being yellow colour is Ang Mo Kio GRC, which was helmed by former Prime Minister Mr Lee in GE2020. Ang Mo Kio GRC has very strong support for the incumbent PAP.These two GRCs are considered "safe seats" for the PAP.
+
+Conversely, West Coast GRC in the West and East Coast GRC in the East (both in dark blue colour) scored quite lowly on the vote percentage scales, approximately 50-55%. This shows the winning parties barely secured majority votes and suggest that there were fierce competition from Opposition parties.
+
+Most constituencies in the central region, displayed by pinkish orange colour, showed moderate to strong support.
+
+Such a visualization allow all political parties to identify where the strongholds are, and where the weak spots are. It allows the incumbents to devised strategies, channel extra resources to the weaker area to beef up local support. At the same time, it can serve to inform the Oppositions where potential opportunities lies in future elections.
+
+```{r percentrej, echo=F}
+# Additional analysis: Percentage of rejected votes over time
+yearly_summary <- yearly_summary %>%
+  mutate(
+    rejection_rate = (total_rejected / total_registered) * 100, #create new variable rejection_rate
+    spoilt_rate = (total_spoilt / total_registered) * 100   # create new variable spoilt_rate
+  )
+# Plot rejection rates
+ggplot(yearly_summary, aes(x = year)) +
+  geom_line(aes(y = rejection_rate, color = "Rejection Rate"), size = 1) +
+  geom_line(aes(y = spoilt_rate, color = "Spoilt Rate"), size = 1) +
+  scale_color_manual(
+    values = c("Rejection Rate" = "red", "Spoilt Rate" = "yellow")
+  ) +
+  labs(
+    title = "Trends in Rejection and Spoilt Ballot Rates (1955-2020)",
+    x = "Year",
+    y = "Percentage (%)",
+    color = "Type"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size=11),
+    axis.text.x = element_text(angle = 45, hjust = 0))
+```
+
+This line chart shows the trend of Rejection rates (red) and spoilt ballot rates (yellow) over the years. The number of spoilt ballots has remained consistently low relative to the volatile patterns of rejected votes. There are periodic spikes in rejected votes during certain election years. Looking at the specific spike years (1984, 1988, 2011, 2015, and 2020), we can observe that:
+
+- The rejection rates increased significantly from around 0.6% in 1955 to peaks of over 1.9% in recent elections
+- The most recent elections (2011-2020) showed consistently higher rejection rates
+
+Several potential reasons for the periodic spikes in rejected votes include:
+
+1. Electoral System Changes
+
+- Introduction of new voting procedures or requirements, e.g. GRC 
+- Changes in ballot design or voting mechanisms  
+  
+2. Demographic Factors
+
+- Large influx of first-time voters in certain years breeds unfamiliarity
+- Aging population may struggle with voting procedures  
+  
+3. Administrative and Procedural Factors
+  
+- Training variations among election officials
+- Different interpretations of voting guidelines across constituencies  
+
+\newpage
+
+## Conclusion
+
+This analysis of Singapore's electoral history reveals an interplay of historical trends and contemoprary developments of the political landscape, underscored by the enduring dominance of PAP alongside incremental gains by the Opposition. These trends indicated a dynamic rather than a static political environment. It also suggest a maturing democracy with young voters yearning for more alternative voices to represent them in Parliament.
+
+Systemic reforms like the NCMP Scheme to have more Opposition voices in Parliament, and structural reform such as the implementation of GRC to get more minorities representation in Parliament, whether they are deemed to be inclusive or created an unfair playing field, have fundamentally shaped Singapore's parliamentary system.
+
+While past trends points to the PAP maintaining its political dominance in Parliament, they could also suggest a political landscape poised for more competitive elections as more credible Opposition parties try to establish lasting footholds in Singapore's Parliamentary system.
+
+\newpage
+
+## Reference
+
+
+Elections Department. (2016). Parliamentary General Election - Registered Electors, Rejected Votes and Spoilt Ballots (2024) [Dataset]. data.gov.sg. Retrieved February 23, 2025 from https://data.gov.sg/datasets/d_fdfb854fcb7428b29734d2e0c0674220/view
+
+Koh, F. (2024, August 25). CNA Explains: What could more voters mean for number of MPs, electoral boundaries in Singapore’s next GE? Channel News Asia.
+https://www.channelnewsasia.com/singapore/cna-explains-what-could-more-voters-mean-number-mps-electoral-boundaries-singapores-next-general-election-4559726
+
+yahoo!news. (2011) WP wins Aljunied GRC, makes key breakthrough. https://sg.news.yahoo.com/wp-wins-aljunied-grc--reports.html?guccounter=1&guce_referrer=aHR0cHM6Ly93d3cuZ29vZ2xlLmNvbS8&guce_referrer_sig=AQAAAJFcZSWwAGQLO1cebtiwYBYDjYMBTmxPwf63uV1lrDilOtMujzBhO8vtX-W4DUIFqKZwM_HHTMN2Lh1MtFJ3wAQG4xoVZzDprkAeF0zbpS-DTHrgEL7yOz4k6ckGkhQBLN4B73EN_nv573QZCDmcBoBv3qX4E7hgxwZ1obskQgwB
+
+National Library Board Singapore (2011). Non-Constituency Member of Parliament scheme is introduced. https://www.nlb.gov.sg/main/article-detail?cmsuuid=64dfccf4-cb6d-441f-aab8-eea923e4d746
+
+Election Department Singapore (2024) TYPES OF ELECTORAL DIVISIONS.
+https://www.eld.gov.sg/elections_type_electoral.html
+
+Sunday Times Reporters. (1972, September 3) Clean Sweep for the PAP. The Straits Times
+https://eresources.nlb.gov.sg/newspapers/digitised/article/straitstimes19720903-1.2.2
+
+Fong, L. (1976, December 24). 69 to Nothing. The Straits Times, p1.
+https://eresources.nlb.gov.sg/newspapers/digitised/article/straitstimes19761224-1.2.2
+
+Fong, L. et al(1980, December 24). 75-0 IT'S ANOTHER CLEAN SWEEP. The Straits Time, p1.
+https://eresources.nlb.gov.sg/newspapers/digitised/article/straitstimes19801224-1.2.2
+
+\newpage
+
+# Data Appendix
+
+For this report, the elections data sets used were from Elections Department (ELD) extracted via the data.gov.sg API. Here I have shown an example of an API to extract data on "Parliamentary GE Results by candidate" from the url https://data.gov.sg/datasets/d_581a30bee57fa7d8383d6bc94739ad00/view
+
+There are 3 main components in the above web API:  
+1. Base url: https://data.gov.sg/  
+2. Resource path: api/action/datastore_search  
+3. Query: ?resource_id=d_581a30bee57fa7d8383d6bc94739ad00  
+
+
+#API to extract data on "Parliamentary GE Results by candidate"
+
+### Constructing the URL
+dataset_id <- "d_581a30bee57fa7d8383d6bc94739ad00"
+elections.url <- paste0("https://data.gov.sg/api/action/datastore_search?resource_id=", dataset_id, "&limit=10000")
+
+### Extracting the Data
+out.elections <- fromJSON(elections.url, simplifyDataFrame = T) # Fetching the data
+df.elections <- out.elections$result$records # Saving the records
+
+---
+
+### Sanity Check
+In the "Parliamentary GE Results by candidate" dataframe, it contains 8 variables and 1539 rows. The vote_count and vote_percentage variables were in "chr".
+```{r echo=F}
+#API to extract data on "Parliamentary GE Results by candidate"
+### Constructing the URL
+dataset_id <- "d_581a30bee57fa7d8383d6bc94739ad00"
+elections.url <- paste0("https://data.gov.sg/api/action/datastore_search?resource_id=", dataset_id, "&limit=10000")
+### Extracting the Data
+out.elections <- fromJSON(elections.url, simplifyDataFrame = T) # Fetching the data
+df.elections <- out.elections$result$records # Saving the records
+str(df.elections)
+```
+\newpage
+### Data Cleaning
+The two columns were convert to numeric data type and all "na" were replaced with NA.
+```{r echo=T}
+#convert columns to numeric
+df.elections <- df.elections %>%
+  mutate(    vote_count = as.numeric(vote_count), 
+    vote_percentage = as.numeric(vote_percentage), year = as.numeric(year))
+
+# Replace 'na' with NA for proper handling
+df.elections[df.elections == "na"] <- NA
+str(df.elections)
+```
+### Sanity Check
+The "Parliamentary General Election - Registered Electors Rejected Votes and Spoilt Ballots " dataframe consist of 6 variables and 721 rows. On first inspection, several of the columns were not in the correct data types.
+```{r echo=F}
+##Constructing the URL
+dataset_id <- "d_fdfb854fcb7428b29734d2e0c0674220"
+url <- paste0("https://data.gov.sg/api/action/datastore_search?resource_id=" , dataset_id, "&limit=10000")
+### Extracting the data for "ParliamentaryGeneralElection-RegisteredElectors RejectedVotesandSpoiltBallots.csv"
+out.regelectors <- fromJSON(url, simplifyDataFrame = T)
+df.regelectors <- out.regelectors$result$records 
+#head(df.regelectors)
+str(df.regelectors)
+```
+### Data Cleaning
+Those columns were converted to numeric.
+```{r echo=T}
+# Convert character columns to numeric
+df.regelectors <- df.regelectors %>%
+  mutate(
+    no_of_registered_electors = as.numeric(no_of_registered_electors),
+    no_of_rejected_votes = as.numeric(no_of_rejected_votes),
+    no_of_spoilt_ballot_papers = as.numeric(no_of_spoilt_ballot_papers),
+    year = as.integer(year)
+  )
+str(df.regelectors)
+```
+### Data Aggregation
+
+From the "Registered Electors Rejected Votes and Spoilt Ballots" data frame, a summary statistic was created by aggregating each of 3 columns "no_of_registered_electors", "no_of_rejected_votes" & "no_of_spoilt_ballot_papers" to find each of its total by year and assign it as a new dataframe "yearly_summary".
+
+```{r echo=T, eval=F}
+# Create yearly summary
+yearly_summary <- df.regelectors %>% 
+  group_by(year) %>%
+  summarise(
+    total_registered = sum(no_of_registered_electors, na.rm=TRUE),
+    total_rejected = sum(no_of_rejected_votes, na.rm=TRUE),
+    total_spoilt = sum(no_of_spoilt_ballot_papers, na.rm=TRUE)
+
+```
+The result is a new dataframe yearly_summary to prepare for visualization
+```{r echo=F}
+str(yearly_summary,5)
+```
+### Feature Engineering
+
+To create plot for Rejection rates & spoilt ballots rates, 2 new variables were created in the yearly_summary data frame. Rejection rate, which is total_rejected divided by total_registered. 
+spoilt_rate, which is total_spoilt divided by total_registered. The new features provide more meaningful insights than raw counts from the original data set.
+
+```{r echo=T, eval=F}
+yearly_summary <- yearly_summary %>%
+  mutate(
+    rejection_rate = (total_rejected / total_registered) * 100,
+    spoilt_rate = (total_spoilt / total_registered) * 100
+  )
+```
+
+### Pre processing before merging
+```{r echo=T, eval=F}
+# rename Name column to constituency
+geo_data <- geo_data %>% 
+  rename(constituency = Name)
+
+# Filter to year 2020 & convert constituency name to Upper case
+df.elections2020 <- df.elections %>%
+  filter(year == 2020) %>%
+  mutate(constituency = trimws(toupper(constituency)))
+# Extract the winning party per constituency
+winning_parties <- df.elections2020 %>%
+  group_by(constituency) %>%
+  filter(vote_percentage == max(vote_percentage, na.rm=TRUE)) %>%
+  ungroup()
+# Use a left-join to merge df.elections & geo_data by common column "constituency"
+combined_data <- geo_data %>% 
+ # left_join(df.elections2020, by = "constituency")
+  left_join(winning_parties, by = "constituency")
+```
+After read in the 2020GeoJSON file and assigned as geo_data, a sanity check found that a column "Name" of geo_data, which shows constituency names are in CAPITAL letters. On the other hand, the df.elections consist of a column "constituency" with the constituency names but not in CAPITAL letters.
+
+Hence I renamed "Name" column in geo_data dataframe to "constituency". In the df.elections dataframe, I filter to the year 2020 and converted "constituency" to upper case and assigned the dataframe as df.elections2020.
+
+As I wanted to show winning party vote percentage in year 2020, I created a new data frame "winning_parties", which was grouped by constituency and filtered by the highest vote percentage using max(). I used "na.rm = TRUE" to skip the rows with missing value when performing the max() function so that it would not return a NA should it encounter a missing value. 
+
+After that, I merged geo_data with df.elections with a left_join() and by the common column "constituency" and named the new dataframe as combined_data. The new dataframe is ready for plotting.
+
+### Marking locations on the map
+
+I wanted to show the names of four GRC on the choropleth map, hence I googled for their respective logitudes and latitudes, assigned their names and constructed a data frame for the places to be marked, as shown in below codes. 
+```{r echo=T, eval=F}
+#save longitude,latitude & location name
+Jurong <- c(103.7216, 1.3346, 'Jurong GRC')
+AMK <- c(103.84834, 1.36944, 'AMK GRC')
+East <- c(103.9951, 1.3511, 'East Coast GRC')
+West <- c(103.72767, 1.27931, 'West Coast GRC')
+
+# Construct the data frame for the places to be marked
+places <- rbind(Jurong, AMK, East, West) %>% as.data.frame()
+colnames(places) <- c("long", "lat", "ID") # ID contains the name of the places
+places$long <- as.numeric(places$long) #ensure the coordinates are numeric
+places$lat <- as.numeric (places$lat)
+```
+  
+## RMarkdown file
