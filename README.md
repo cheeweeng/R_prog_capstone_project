@@ -1,16 +1,28 @@
-## Hi there 👋
+## 🗳️ From Past to Present: An Analytical Overview of Singapore’s Parliamentary Elections  
+This capstone project was developed and submitted in March 2025 as part of the Data Visualisation and Storytelling module at Singapore University of Social Sciences (SUSS).   
+It presents an in-depth, data-driven analysis of Singapore’s parliamentary election history from 1955 to the present, with a focus on uncovering key trends, party dynamics, and electoral   developments.
+## 📌 Objectives
+To provide a comprehensive overview of Singapore’s general elections using publicly available data.
 
-<!--
-**cheeweeng/cheeweeng** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+To visualise election trends in a clean, compelling, and insightful manner.
 
-Here are some ideas to get you started:
+To connect historical patterns with current political developments.
+## 🛠️ Tools and Technologies
+Language: R
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+Main Packages: tidyverse, ggplot2, plotly, sf, jsonlite
+
+Data Source: data.gov.sg - Elections Department (ELD)
+
+Visualisation Tools: RMarkdown, ggplot2
+
+## 📊 Key Features
+Trend analysis of political party performance since 1955.
+
+Vote share and seat distribution by party and year.
+
+Choropleth maps of electoral results using electoral boundary geojson.
+
+Integration of recent political commentary from public sources to support contextual insights.
+
+Clean, reproducible RMarkdown code with full documentation.
