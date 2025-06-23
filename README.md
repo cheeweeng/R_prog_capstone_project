@@ -10,11 +10,9 @@ To connect historical patterns with current political developments.
 ## 🛠️ Tools and Technologies
 Language: R
 
-Main Packages: tidyverse, ggplot2, plotly, sf, jsonlite
+Main Packages: tidyverse, ggplot2, geojsonsf, jsonlite
 
 Data Source: data.gov.sg - Elections Department (ELD)
-
-Visualisation Tools: RMarkdown, ggplot2
 
 ## 📊 Key Features
 Trend analysis of political party performance since 1955.
@@ -27,4 +25,4 @@ Integration of recent political commentary from public sources to support contex
 
 Clean, reproducible RMarkdown code with full documentation.  
 
-Back to [Projects main page]
+Back to [Projects main page](https://cheeweeng.github.io)
